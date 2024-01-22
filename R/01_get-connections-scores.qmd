@@ -1,0 +1,76 @@
+---
+title: "Get connections scores"
+author: "Dave"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r libraries}
+library(fs)
+library(here)
+library(conflicted)
+
+library(Microsoft365R)
+library(purrr)
+library(dplyr)
+conflicted::conflicts_prefer(dplyr::filter)
+library(stringr)
+```
+
+## Get scores
+
+### Get message replies
+
+```{r get_teams}
+app <- "cf81189c-b1be-492e-929e-6e47c3706346"
+
+l_and_d <- get_team("Learning & Development Team", app = app)
+
+cafe <- l_and_d$get_channel("L and D Cafe Space")
+
+connections_thread <- cafe$get_message("1695823039201")
+
+replies <- connections_thread$list_replies(n = Inf)
+
+replies <- map(replies, \(x) x$properties)
+```
+
+## View replies
+
+```{r view_replies}
+names(replies[[1]])
+replies[[1]]
+
+replies <- map(replies, 
+               \(x){
+                 list(
+                   body = x$body$content,
+                   user = x$from$user$displayName,
+                   created = x$createdDateTime,
+                   reactions = x$reactions,
+                   url = x$webUrl
+                 )
+               })
+
+replies <- list_transpose(replies)
+
+replies <-
+  as_tibble(replies) |> 
+  arrange(created)
+
+scores <- filter(replies,
+                 str_starts(body, "<p>Connections&nbsp;<br>\nPuzzle #\\d+<br>"))
+```
+
+## Save
+
+```{r save}
+dir_create(here("scores"))
+
+file_name <- 
+  str_c("connections-scores", "_", Sys.Date())
+
+saveRDS(scores, here("scores", file_name))
+```

@@ -1,0 +1,103 @@
+---
+title: "Clean connections scores"
+author: "Dave"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r libraries}
+library(fs)
+library(here)
+library(conflicted)
+
+library(dplyr)
+conflicted::conflicts_prefer(dplyr::filter)
+
+library(stringr)
+library(ggplot2)
+library(carutools)
+library(lubridate)
+```
+
+### Colours
+
+```{r colours}
+con_green  <- "#a0c35aff"
+con_yellow <- "#f9df6dff"
+con_purple <- "#ba81c5ff"
+con_blue   <- "#b0c4efff"
+```
+
+## Read scores
+
+```{r read_scores}
+scores <- readRDS(here("scores", "connections-scores_2024-01-22"))
+```
+
+## Add fields
+
+### Puzzle number
+
+```{r add_puzzle_number}
+
+wordle_begins <- ymd("2024-01-03")
+
+puzzle_when_wordle <-
+  filter(scores, created == wordle_begins) |> 
+  pull(puzzle) |> 
+  unique()
+
+office_closure <- ymd("2023-12-22")
+puzzle_when_closed <- 
+  filter(scores, created == office_closure) |> 
+  pull(puzzle) |> 
+  unique()
+
+scores <- mutate(scores,
+                 puzzle =
+                   str_extract(body, "\\d+") |> 
+                   as.numeric(),
+                 .after = user)
+
+ggplot(scores, aes(x = puzzle)) + 
+  geom_density(colour = con_purple, size = 1.5) + 
+  
+  geom_vline(xintercept = puzzle_when_wordle,
+             colour = con_green,
+             lty = "dashed",
+             linewidth = 1) + 
+  
+  geom_vline(xintercept = puzzle_when_closed,
+             colour = con_blue,
+             lty = "dashed",
+             linewidth = 1) +
+  
+  annotate("text",
+           x = puzzle_when_closed - 8,
+           y = 0.004, 
+           size = 4.6,
+           label = "Office\nXmas\nclosure", 
+           colour = con_blue) +
+  annotate("text", 
+           x = puzzle_when_wordle + 8,
+           y = 0.0037,
+           size = 4.6,
+           label = "Wordle\nthread\nbegins",
+           colour = con_green) +
+  
+  ggtitle("Interest in connections is waning",
+          sub = "(It peaked around puzzle #160)") +
+
+  xlab("Puzzle #") + 
+  ylab("Results shared on Teams\n(Relative density)") +
+  
+  theme_minimal() +
+  theme(
+    # panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+  )
+```
